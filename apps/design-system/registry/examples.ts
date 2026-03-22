@@ -14,6 +14,12 @@ export const examples: Registry = [
     files: ['example/admonition-demo.tsx'],
   },
   {
+    name: 'admonition-responsive',
+    type: 'components:example',
+    registryDependencies: ['admonition'],
+    files: ['example/admonition-responsive.tsx'],
+  },
+  {
     name: 'admonition-button',
     type: 'components:example',
     registryDependencies: ['admonition'],
@@ -32,16 +38,46 @@ export const examples: Registry = [
     files: ['example/admonition-destructive.tsx'],
   },
   {
+    name: 'admonition-sandwiched',
+    type: 'components:example',
+    registryDependencies: ['admonition'],
+    files: ['example/admonition-sandwiched.tsx'],
+  },
+  {
     name: 'alert-demo',
     type: 'components:example',
     registryDependencies: ['alert'],
     files: ['example/alert-demo.tsx'],
   },
   {
+    name: 'alert-collapsible-demo',
+    type: 'components:example',
+    registryDependencies: ['alert', 'collapsible', 'button'],
+    files: ['example/alert-collapsible-demo.tsx'],
+  },
+  {
     name: 'alert-dialog-demo',
     type: 'components:example',
     registryDependencies: ['alert-dialog', 'button'],
     files: ['example/alert-dialog-demo.tsx'],
+  },
+  {
+    name: 'alert-dialog-close-only',
+    type: 'components:example',
+    registryDependencies: ['alert-dialog', 'button'],
+    files: ['example/alert-dialog-close-only.tsx'],
+  },
+  {
+    name: 'alert-dialog-destructive',
+    type: 'components:example',
+    registryDependencies: ['alert-dialog', 'button'],
+    files: ['example/alert-dialog-destructive.tsx'],
+  },
+  {
+    name: 'alert-dialog-warning',
+    type: 'components:example',
+    registryDependencies: ['alert-dialog', 'button'],
+    files: ['example/alert-dialog-warning.tsx'],
   },
   {
     name: 'aspect-ratio-demo',
@@ -726,10 +762,22 @@ export const examples: Registry = [
     files: ['example/separator-demo.tsx'],
   },
   {
+    name: 'sheet-confirm-on-close-demo',
+    type: 'components:example',
+    registryDependencies: ['alert-dialog', 'button', 'input', 'label', 'separator', 'sheet'],
+    files: ['example/sheet-confirm-on-close-demo.tsx'],
+  },
+  {
     name: 'sheet-demo',
     type: 'components:example',
     registryDependencies: ['sheet'],
     files: ['example/sheet-demo.tsx'],
+  },
+  {
+    name: 'sheet-nonmodal',
+    type: 'components:example',
+    registryDependencies: ['sheet'],
+    files: ['example/sheet-nonmodal.tsx'],
   },
   {
     name: 'sheet-side',
@@ -1040,21 +1088,6 @@ export const examples: Registry = [
     files: ['example/text-confirm-dialog-demo.tsx'],
   },
   {
-    name: 'text-confirm-dialog-with-info-alert',
-    type: 'components:example',
-    files: ['example/text-confirm-dialog-with-info-alert.tsx'],
-  },
-  {
-    name: 'text-confirm-dialog-with-warning-alert',
-    type: 'components:example',
-    files: ['example/text-confirm-dialog-with-warning-alert.tsx'],
-  },
-  {
-    name: 'text-confirm-dialog-with-destructive-alert',
-    type: 'components:example',
-    files: ['example/text-confirm-dialog-with-destructive-alert.tsx'],
-  },
-  {
     name: 'text-confirm-dialog-with-size',
     type: 'components:example',
     files: ['example/text-confirm-dialog-with-size.tsx'],
@@ -1255,6 +1288,11 @@ export const examples: Registry = [
     files: ['example/page-section-horizontal.tsx'],
   },
   {
+    name: 'page-section-title-only',
+    type: 'components:example',
+    files: ['example/page-section-title-only.tsx'],
+  },
+  {
     name: 'page-section-with-aside',
     type: 'components:example',
     files: ['example/page-section-with-aside.tsx'],
@@ -1360,24 +1398,9 @@ export const examples: Registry = [
     files: ['example/tree-view-multi-select.tsx'],
   },
   {
-    name: 'modal-demo',
+    name: 'confirmation-modal-demo',
     type: 'components:example',
-    files: ['example/modal-demo.tsx'],
-  },
-  {
-    name: 'modal-aligned-footer',
-    type: 'components:example',
-    files: ['example/modal-aligned-footer.tsx'],
-  },
-  {
-    name: 'modal-custom-footer',
-    type: 'components:example',
-    files: ['example/modal-custom-footer.tsx'],
-  },
-  {
-    name: 'modal-hide-footer',
-    type: 'components:example',
-    files: ['example/modal-hide-footer.tsx'],
+    files: ['example/confirmation-modal-demo.tsx'],
   },
   {
     name: 'assistant-chat-demo',
@@ -1438,6 +1461,18 @@ export const examples: Registry = [
     name: 'expanding-textarea-demo',
     type: 'docs:example',
     files: ['example/expanding-textarea-demo.tsx'],
+  },
+  {
+    name: 'error-display-demo',
+    type: 'components:example',
+    registryDependencies: ['error-display'],
+    files: ['example/error-display-demo.tsx'],
+  },
+  {
+    name: 'error-display-with-children',
+    type: 'components:example',
+    registryDependencies: ['error-display'],
+    files: ['example/error-display-with-children.tsx'],
   },
   {
     name: 'logs-bar-chart',
@@ -1569,5 +1604,10 @@ export const examples: Registry = [
     type: 'components:example',
     registryDependencies: ['mermaid'],
     files: ['example/mermaid-basic.tsx'],
+  },
+  {
+    name: 'status-code-demo',
+    type: 'components:example',
+    files: ['example/status-code-demo.tsx'],
   },
 ]

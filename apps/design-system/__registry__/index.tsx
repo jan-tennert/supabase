@@ -71,6 +71,17 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
+    "StatusCode": {
+      name: "StatusCode",
+      type: "components:fragment",
+      registryDependencies: undefined,
+      component: React.lazy(() => import("@/../../packages/ui-patterns/src/StatusCode")),
+      source: "",
+      files: ["registry/default//StatusCode/index.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
     "accordion-demo": {
       name: "accordion-demo",
       type: "components:example",
@@ -89,6 +100,17 @@ export const Index: Record<string, any> = {
       component: React.lazy(() => import("@/registry/default/example/admonition-demo")),
       source: "",
       files: ["registry/default/example/admonition-demo.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
+    "admonition-responsive": {
+      name: "admonition-responsive",
+      type: "components:example",
+      registryDependencies: ["admonition"],
+      component: React.lazy(() => import("@/registry/default/example/admonition-responsive")),
+      source: "",
+      files: ["registry/default/example/admonition-responsive.tsx"],
       category: "undefined",
       subcategory: "undefined",
       chunks: []
@@ -126,6 +148,17 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
+    "admonition-sandwiched": {
+      name: "admonition-sandwiched",
+      type: "components:example",
+      registryDependencies: ["admonition"],
+      component: React.lazy(() => import("@/registry/default/example/admonition-sandwiched")),
+      source: "",
+      files: ["registry/default/example/admonition-sandwiched.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
     "alert-demo": {
       name: "alert-demo",
       type: "components:example",
@@ -137,6 +170,17 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
+    "alert-collapsible-demo": {
+      name: "alert-collapsible-demo",
+      type: "components:example",
+      registryDependencies: ["alert","collapsible","button"],
+      component: React.lazy(() => import("@/registry/default/example/alert-collapsible-demo")),
+      source: "",
+      files: ["registry/default/example/alert-collapsible-demo.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
     "alert-dialog-demo": {
       name: "alert-dialog-demo",
       type: "components:example",
@@ -144,6 +188,39 @@ export const Index: Record<string, any> = {
       component: React.lazy(() => import("@/registry/default/example/alert-dialog-demo")),
       source: "",
       files: ["registry/default/example/alert-dialog-demo.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
+    "alert-dialog-close-only": {
+      name: "alert-dialog-close-only",
+      type: "components:example",
+      registryDependencies: ["alert-dialog","button"],
+      component: React.lazy(() => import("@/registry/default/example/alert-dialog-close-only")),
+      source: "",
+      files: ["registry/default/example/alert-dialog-close-only.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
+    "alert-dialog-destructive": {
+      name: "alert-dialog-destructive",
+      type: "components:example",
+      registryDependencies: ["alert-dialog","button"],
+      component: React.lazy(() => import("@/registry/default/example/alert-dialog-destructive")),
+      source: "",
+      files: ["registry/default/example/alert-dialog-destructive.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
+    "alert-dialog-warning": {
+      name: "alert-dialog-warning",
+      type: "components:example",
+      registryDependencies: ["alert-dialog","button"],
+      component: React.lazy(() => import("@/registry/default/example/alert-dialog-warning")),
+      source: "",
+      files: ["registry/default/example/alert-dialog-warning.tsx"],
       category: "undefined",
       subcategory: "undefined",
       chunks: []
@@ -1226,6 +1303,17 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
+    "sheet-confirm-on-close-demo": {
+      name: "sheet-confirm-on-close-demo",
+      type: "components:example",
+      registryDependencies: ["alert-dialog","button","input","label","separator","sheet"],
+      component: React.lazy(() => import("@/registry/default/example/sheet-confirm-on-close-demo")),
+      source: "",
+      files: ["registry/default/example/sheet-confirm-on-close-demo.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
     "sheet-demo": {
       name: "sheet-demo",
       type: "components:example",
@@ -1233,6 +1321,17 @@ export const Index: Record<string, any> = {
       component: React.lazy(() => import("@/registry/default/example/sheet-demo")),
       source: "",
       files: ["registry/default/example/sheet-demo.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
+    "sheet-nonmodal": {
+      name: "sheet-nonmodal",
+      type: "components:example",
+      registryDependencies: ["sheet"],
+      component: React.lazy(() => import("@/registry/default/example/sheet-nonmodal")),
+      source: "",
+      files: ["registry/default/example/sheet-nonmodal.tsx"],
       category: "undefined",
       subcategory: "undefined",
       chunks: []
@@ -1820,39 +1919,6 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
-    "text-confirm-dialog-with-info-alert": {
-      name: "text-confirm-dialog-with-info-alert",
-      type: "components:example",
-      registryDependencies: undefined,
-      component: React.lazy(() => import("@/registry/default/example/text-confirm-dialog-with-info-alert")),
-      source: "",
-      files: ["registry/default/example/text-confirm-dialog-with-info-alert.tsx"],
-      category: "undefined",
-      subcategory: "undefined",
-      chunks: []
-    },
-    "text-confirm-dialog-with-warning-alert": {
-      name: "text-confirm-dialog-with-warning-alert",
-      type: "components:example",
-      registryDependencies: undefined,
-      component: React.lazy(() => import("@/registry/default/example/text-confirm-dialog-with-warning-alert")),
-      source: "",
-      files: ["registry/default/example/text-confirm-dialog-with-warning-alert.tsx"],
-      category: "undefined",
-      subcategory: "undefined",
-      chunks: []
-    },
-    "text-confirm-dialog-with-destructive-alert": {
-      name: "text-confirm-dialog-with-destructive-alert",
-      type: "components:example",
-      registryDependencies: undefined,
-      component: React.lazy(() => import("@/registry/default/example/text-confirm-dialog-with-destructive-alert")),
-      source: "",
-      files: ["registry/default/example/text-confirm-dialog-with-destructive-alert.tsx"],
-      category: "undefined",
-      subcategory: "undefined",
-      chunks: []
-    },
     "text-confirm-dialog-with-size": {
       name: "text-confirm-dialog-with-size",
       type: "components:example",
@@ -2227,6 +2293,17 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
+    "page-section-title-only": {
+      name: "page-section-title-only",
+      type: "components:example",
+      registryDependencies: undefined,
+      component: React.lazy(() => import("@/registry/default/example/page-section-title-only")),
+      source: "",
+      files: ["registry/default/example/page-section-title-only.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
     "page-section-with-aside": {
       name: "page-section-with-aside",
       type: "components:example",
@@ -2458,46 +2535,13 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
-    "modal-demo": {
-      name: "modal-demo",
+    "confirmation-modal-demo": {
+      name: "confirmation-modal-demo",
       type: "components:example",
       registryDependencies: undefined,
-      component: React.lazy(() => import("@/registry/default/example/modal-demo")),
+      component: React.lazy(() => import("@/registry/default/example/confirmation-modal-demo")),
       source: "",
-      files: ["registry/default/example/modal-demo.tsx"],
-      category: "undefined",
-      subcategory: "undefined",
-      chunks: []
-    },
-    "modal-aligned-footer": {
-      name: "modal-aligned-footer",
-      type: "components:example",
-      registryDependencies: undefined,
-      component: React.lazy(() => import("@/registry/default/example/modal-aligned-footer")),
-      source: "",
-      files: ["registry/default/example/modal-aligned-footer.tsx"],
-      category: "undefined",
-      subcategory: "undefined",
-      chunks: []
-    },
-    "modal-custom-footer": {
-      name: "modal-custom-footer",
-      type: "components:example",
-      registryDependencies: undefined,
-      component: React.lazy(() => import("@/registry/default/example/modal-custom-footer")),
-      source: "",
-      files: ["registry/default/example/modal-custom-footer.tsx"],
-      category: "undefined",
-      subcategory: "undefined",
-      chunks: []
-    },
-    "modal-hide-footer": {
-      name: "modal-hide-footer",
-      type: "components:example",
-      registryDependencies: undefined,
-      component: React.lazy(() => import("@/registry/default/example/modal-hide-footer")),
-      source: "",
-      files: ["registry/default/example/modal-hide-footer.tsx"],
+      files: ["registry/default/example/confirmation-modal-demo.tsx"],
       category: "undefined",
       subcategory: "undefined",
       chunks: []
@@ -2898,6 +2942,17 @@ export const Index: Record<string, any> = {
       subcategory: "undefined",
       chunks: []
     },
+    "status-code-demo": {
+      name: "status-code-demo",
+      type: "components:example",
+      registryDependencies: undefined,
+      component: React.lazy(() => import("@/registry/default/example/status-code-demo")),
+      source: "",
+      files: ["registry/default/example/status-code-demo.tsx"],
+      category: "undefined",
+      subcategory: "undefined",
+      chunks: []
+    },
     "chart-bar-interactive": {
       name: "chart-bar-interactive",
       type: "components:block",
@@ -3005,7 +3060,7 @@ export const Index: Record<string, any> = {
       source: "",
       files: ["registry/default/example/copy-error-messages.tsx"],
       category: "Getting Started",
-        subcategory: "Copywriting",
+      subcategory: "Copywriting",
       chunks: []
     },
     "copy-success-messages": {
@@ -3060,7 +3115,7 @@ export const Index: Record<string, any> = {
       source: "",
       files: ["registry/default/example/copy-confirmations.tsx"],
       category: "Getting Started",
-        subcategory: "Copywriting",
+      subcategory: "Copywriting",
       chunks: []
     },
   },

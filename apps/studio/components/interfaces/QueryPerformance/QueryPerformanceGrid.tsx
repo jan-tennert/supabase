@@ -25,13 +25,15 @@ import { InfoTooltip } from 'ui-patterns/info-tooltip'
 import { GenericSkeletonLoader } from 'ui-patterns/ShimmeringLoader'
 import { Admonition } from 'ui-patterns'
 import { useQueryPerformanceSort } from './hooks/useQueryPerformanceSort'
-import { hasIndexRecommendations } from './IndexAdvisor/index-advisor.utils'
+import {
+  hasIndexRecommendations,
+  queryInvolvesProtectedSchemas,
+} from './IndexAdvisor/index-advisor.utils'
 import { IndexSuggestionIcon } from './IndexAdvisor/IndexSuggestionIcon'
 import { QueryDetail } from './QueryDetail'
 import { QueryIndexes } from './QueryIndexes'
 import {
   QUERY_PERFORMANCE_COLUMNS,
-  QUERY_PERFORMANCE_REPORT_TYPES,
   QUERY_PERFORMANCE_ROLE_DESCRIPTION,
 } from './QueryPerformance.constants'
 import { QueryPerformanceRow } from './QueryPerformance.types'
@@ -95,7 +97,6 @@ export const QueryPerformanceGrid = ({
 
   const [view, setView] = useState<'details' | 'suggestion'>('details')
   const [selectedRow, setSelectedRow] = useState<number>()
-  const reportType = QUERY_PERFORMANCE_REPORT_TYPES.UNIFIED
 
   const columns = QUERY_PERFORMANCE_COLUMNS.map((col) => {
     const nonSortableColumns = ['query']
@@ -108,7 +109,7 @@ export const QueryPerformanceGrid = ({
       minWidth:
         col.id === 'prop_total_time'
           ? calculateTimeConsumedWidth((aggregatedData as any) ?? [])
-          : col.minWidth ?? 120,
+          : (col.minWidth ?? 120),
       sortable: !nonSortableColumns.includes(col.id),
       headerCellClass: 'first:pl-6 cursor-pointer',
       renderHeaderCell: () => {
@@ -338,6 +339,18 @@ export const QueryPerformanceGrid = ({
           )
         }
 
+        if (col.id === 'application_name') {
+          return (
+            <div className="w-full flex flex-col justify-center">
+              {value ? (
+                <p className="font-mono text-xs">{value}</p>
+              ) : (
+                <p className="text-muted">&ndash;</p>
+              )}
+            </div>
+          )
+        }
+
         return (
           <div className="w-full flex flex-col gap-y-0.5 justify-center text-xs">
             <p>{formattedValue}</p>
@@ -484,6 +497,10 @@ export const QueryPerformanceGrid = ({
     )
   }
 
+  const selectedQuery = selectedRow !== undefined ? reportData[selectedRow]?.query : undefined
+  const isProtectedSchemaQuery = queryInvolvesProtectedSchemas(selectedQuery)
+  const canShowIndexesTab = isSelectQuery(selectedQuery) && !isProtectedSchemaQuery
+
   return (
     <div className="relative flex flex-grow bg-alternative min-h-0">
       <div ref={dataGridContainerRef} className="flex-1 min-w-0 overflow-x-auto">
@@ -597,7 +614,7 @@ export const QueryPerformanceGrid = ({
                 >
                   Query details
                 </TabsTrigger_Shadcn_>
-                {selectedRow !== undefined && isSelectQuery(reportData[selectedRow]?.query) && (
+                {selectedRow !== undefined && canShowIndexesTab && (
                   <TabsTrigger_Shadcn_
                     value="suggestion"
                     className="px-0 pb-0 data-[state=active]:bg-transparent !shadow-none"
@@ -611,13 +628,13 @@ export const QueryPerformanceGrid = ({
             <TabsContent_Shadcn_ value="details" className="mt-0 flex-grow min-h-0 overflow-y-auto">
               {selectedRow !== undefined && (
                 <QueryDetail
-                  reportType={reportType}
                   selectedRow={reportData[selectedRow]}
                   onClickViewSuggestion={() => setView('suggestion')}
+                  onClose={() => setSelectedRow(undefined)}
                 />
               )}
             </TabsContent_Shadcn_>
-            {selectedRow !== undefined && isSelectQuery(reportData[selectedRow]?.query) && (
+            {selectedRow !== undefined && canShowIndexesTab && (
               <TabsContent_Shadcn_
                 value="suggestion"
                 className="mt-0 flex-grow min-h-0 overflow-y-auto"

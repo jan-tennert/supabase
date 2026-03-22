@@ -1,8 +1,4 @@
 import { PermissionAction } from '@supabase/shared-types/out/constants'
-import dayjs from 'dayjs'
-import Link from 'next/link'
-import { useMemo, useState } from 'react'
-
 import { useParams } from 'common'
 import {
   ScaffoldContainer,
@@ -14,24 +10,28 @@ import AlertError from 'components/ui/AlertError'
 import DateRangePicker from 'components/ui/DateRangePicker'
 import NoPermission from 'components/ui/NoPermission'
 import { OrganizationProjectSelector } from 'components/ui/OrganizationProjectSelector'
-import ShimmeringLoader from 'components/ui/ShimmeringLoader'
 import { useOrgDailyStatsQuery } from 'data/analytics/org-daily-stats-query'
 import { useProjectDetailQuery } from 'data/projects/project-detail-query'
 import { useOrgSubscriptionQuery } from 'data/subscriptions/org-subscription-query'
+import dayjs from 'dayjs'
 import { useAsyncCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import { TIME_PERIODS_BILLING, TIME_PERIODS_REPORTS } from 'lib/constants/metrics'
 import { Check, ChevronDown } from 'lucide-react'
+import Link from 'next/link'
 import { useQueryState } from 'nuqs'
+import { useMemo, useState } from 'react'
 import { Button, cn, CommandGroup_Shadcn_, CommandItem_Shadcn_ } from 'ui'
 import { Admonition } from 'ui-patterns'
+import { ShimmeringLoader } from 'ui-patterns/ShimmeringLoader'
+
 import { Restriction } from '../BillingSettings/Restriction'
+import ActiveCompute from './ActiveCompute'
 import Activity from './Activity'
 import Compute from './Compute'
 import Egress from './Egress'
+import OrgLogUsage from './OrgLogUsage'
 import SizeAndCounts from './SizeAndCounts'
 import { TotalUsage } from './TotalUsage'
-import ActiveCompute from './ActiveCompute'
-import OrgLogUsage from './OrgLogUsage'
 
 export const Usage = () => {
   const { slug } = useParams()
@@ -163,13 +163,15 @@ export const Usage = () => {
                     onSelect={(project) => {
                       setSelectedProjectRef(project.ref)
                     }}
-                    renderTrigger={() => {
+                    renderTrigger={({ listboxId, open }) => {
                       return (
                         <Button
                           block
                           type="default"
                           role="combobox"
                           size="tiny"
+                          aria-expanded={open}
+                          aria-controls={listboxId}
                           className="justify-between w-[180px]"
                           iconRight={<ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
                         >

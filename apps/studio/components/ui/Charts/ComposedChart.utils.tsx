@@ -5,7 +5,7 @@ import { formatBytes } from 'lib/helpers'
 import { useState } from 'react'
 import { cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from 'ui'
 import { CHART_COLORS, DateTimeFormats } from './Charts.constants'
-import { numberFormatter } from './Charts.utils'
+import { formatPercentage, numberFormatter } from './Charts.utils'
 
 export interface ReportAttributes {
   id?: string
@@ -14,7 +14,8 @@ export interface ReportAttributes {
   attributes?: (MultiAttribute | false)[]
   defaultChartStyle?: 'bar' | 'line' | 'stackedAreaLine'
   hide?: boolean
-  availableIn?: string[]
+  entitlement?: string
+  requiredPlan?: string
   hideChartType?: boolean
   format?: string
   className?: string
@@ -42,6 +43,10 @@ export type MultiAttribute = {
   color?: {
     light: string
     dark: string
+  }
+  fill?: {
+    light?: string
+    dark?: string
   }
   statusCode?: string
   grantType?: string
@@ -232,9 +237,10 @@ export const CustomTooltip = ({
               <span className="flex-grow text-foreground-lighter">Total</span>
               <div className="flex items-end gap-1">
                 <span className="text-base">
-                  {formatNumeric(total as number) +
-                    (!isPercentage && format !== 'ms' ? byteUnitSuffix : '')}
-                  {isPercentage ? '%' : ''}
+                  {isPercentage
+                    ? formatPercentage(total as number, valuePrecision)
+                    : formatNumeric(total as number) +
+                      (!isPercentage && format !== 'ms' ? byteUnitSuffix : '')}
                   {format === 'ms' ? 'ms' : ''}
                 </span>
                 {maxValueAttribute &&
@@ -341,7 +347,9 @@ export const CustomLabel = ({
     <div className="relative z-10 mx-auto flex flex-col items-center gap-1 text-xs w-full">
       <div className="flex flex-wrap items-center justify-center gap-2">
         <TooltipProvider delayDuration={800}>
-          {items?.map((entry, index) => <LabelItem key={`${entry.name}-${index}`} entry={entry} />)}
+          {items?.map((entry, index) => (
+            <LabelItem key={`${entry.name}-${index}`} entry={entry} />
+          ))}
         </TooltipProvider>
       </div>
     </div>

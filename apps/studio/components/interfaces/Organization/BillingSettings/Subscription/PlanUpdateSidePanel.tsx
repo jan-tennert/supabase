@@ -1,16 +1,10 @@
 import { PermissionAction } from '@supabase/shared-types/out/constants'
-import { isArray } from 'lodash'
-import { Check, ExternalLink } from 'lucide-react'
-import { useRouter } from 'next/router'
-import { useEffect, useMemo, useRef, useState } from 'react'
-
 import { useParams } from 'common'
 import { StudioPricingSidePanelOpenedEvent } from 'common/telemetry-constants'
 import { getPlanChangeType } from 'components/interfaces/Billing/Subscription/Subscription.utils'
 import { ButtonTooltip } from 'components/ui/ButtonTooltip'
 import PartnerManagedResource from 'components/ui/PartnerManagedResource'
 import { RequestUpgradeToBillingOwners } from 'components/ui/RequestUpgradeToBillingOwners'
-import ShimmeringLoader from 'components/ui/ShimmeringLoader'
 import { useFreeProjectLimitCheckQuery } from 'data/organizations/free-project-limit-check-query'
 import { useOrganizationBillingSubscriptionPreview } from 'data/organizations/organization-billing-subscription-preview'
 import { useOrganizationQuery } from 'data/organizations/organization-query'
@@ -23,10 +17,16 @@ import { useAsyncCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { MANAGED_BY } from 'lib/constants/infrastructure'
 import { formatCurrency } from 'lib/helpers'
+import { isArray } from 'lodash'
+import { Check, ExternalLink } from 'lucide-react'
+import { useRouter } from 'next/router'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { plans as subscriptionsPlans } from 'shared-data/plans'
 import { useOrgSettingsPageStateSnapshot } from 'state/organization-settings'
 import { Organization } from 'types/base'
-import { Button, SidePanel, cn } from 'ui'
+import { Button, cn, SidePanel } from 'ui'
+import { ShimmeringLoader } from 'ui-patterns/ShimmeringLoader'
+
 import DowngradeModal from './DowngradeModal'
 import { EnterpriseCard } from './EnterpriseCard'
 import { ExitSurveyModal } from './ExitSurveyModal'
@@ -187,7 +187,8 @@ export const PlanUpdateSidePanel = () => {
               const source = Array.isArray(router.query.source)
                 ? router.query.source[0]
                 : router.query.source
-              const shouldHighlight = source === 'log-drains-empty-state' && plan.id === 'tier_team'
+              // TODO this panel should allow direct configuration of the highlighting rather than indirectly via the source param
+              const shouldHighlight = source === 'log-drains-empty-state' && plan.id === 'tier_pro'
 
               if (plan.id === 'tier_enterprise') {
                 return <EnterpriseCard key={plan.id} plan={plan} isCurrentPlan={isCurrentPlan} />

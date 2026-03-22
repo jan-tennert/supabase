@@ -15,6 +15,8 @@ import { useSidebarManagerSnapshot } from 'state/sidebar-manager-state'
 interface PolicyTableRowHeaderProps {
   table: PolicyTable
   isLocked: boolean
+  hasApiAccess: boolean
+  isLoadingApiAccess: boolean
   onSelectToggleRLS: (table: PolicyTable) => void
   onSelectCreatePolicy: (table: PolicyTable) => void
 }
@@ -22,6 +24,8 @@ interface PolicyTableRowHeaderProps {
 export const PolicyTableRowHeader = ({
   table,
   isLocked,
+  hasApiAccess,
+  isLoadingApiAccess,
   onSelectToggleRLS = noop,
   onSelectCreatePolicy,
 }: PolicyTableRowHeaderProps) => {
@@ -55,6 +59,11 @@ export const PolicyTableRowHeader = ({
           {!table.rls_enabled && (
             <Badge variant="warning" className="shrink-0">
               RLS Disabled
+            </Badge>
+          )}
+          {!isLoadingApiAccess && !hasApiAccess && (
+            <Badge variant="default" className="shrink-0">
+              API Disabled
             </Badge>
           )}
         </EditorTablePageLink>

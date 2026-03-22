@@ -1,13 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { buildDefaultPrivilegesSql } from '@supabase/pg-meta'
 import { PermissionAction } from '@supabase/shared-types/out/constants'
-import Link from 'next/link'
-import { useRouter } from 'next/router'
-import { PropsWithChildren, useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { toast } from 'sonner'
-import { z } from 'zod'
-
 import { LOCAL_STORAGE_KEYS, useFlag, useParams } from 'common'
+import { AUTO_ENABLE_RLS_EVENT_TRIGGER_SQL } from 'components/interfaces/Database/Triggers/EventTriggersList/EventTriggers.constants'
 import { AdvancedConfiguration } from 'components/interfaces/ProjectCreation/AdvancedConfiguration'
 import { CloudProviderSelector } from 'components/interfaces/ProjectCreation/CloudProviderSelector'
 import { ComputeSizeSelector } from 'components/interfaces/ProjectCreation/ComputeSizeSelector'
@@ -15,6 +10,7 @@ import { CustomPostgresVersionInput } from 'components/interfaces/ProjectCreatio
 import { DatabasePasswordInput } from 'components/interfaces/ProjectCreation/DatabasePasswordInput'
 import { DisabledWarningDueToIncident } from 'components/interfaces/ProjectCreation/DisabledWarningDueToIncident'
 import { FreeProjectLimitWarning } from 'components/interfaces/ProjectCreation/FreeProjectLimitWarning'
+import { HighAvailabilityInput } from 'components/interfaces/ProjectCreation/HighAvailabilityInput'
 import { OrganizationSelector } from 'components/interfaces/ProjectCreation/OrganizationSelector'
 import {
   extractPostgresVersionDetails,
@@ -46,24 +42,30 @@ import {
   ProjectCreateVariables,
   useProjectCreateMutation,
 } from 'data/projects/project-create-mutation'
+import { useCustomContent } from 'hooks/custom-content/useCustomContent'
 import { useAsyncCheckPermissions } from 'hooks/misc/useCheckPermissions'
+import { useDataApiGrantTogglesEnabled } from 'hooks/misc/useDataApiGrantTogglesEnabled'
 import { useIsFeatureEnabled } from 'hooks/misc/useIsFeatureEnabled'
 import { useLocalStorageQuery } from 'hooks/misc/useLocalStorage'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { withAuth } from 'hooks/misc/withAuth'
-import {
-  DEFAULT_MINIMUM_PASSWORD_STRENGTH,
-  DOCS_URL,
-  PROJECT_STATUS,
-  PROVIDERS,
-  useDefaultProvider,
-} from 'lib/constants'
+import { usePHFlag } from 'hooks/ui/useFlag'
+import { DOCS_URL, PROJECT_STATUS, PROVIDERS, useDefaultProvider } from 'lib/constants'
+import { buildStudioPageTitle } from 'lib/page-title'
+import { useProfile } from 'lib/profile'
 import { useTrack } from 'lib/telemetry/track'
+import Head from 'next/head'
+import Link from 'next/link'
+import { useRouter } from 'next/router'
+import { PropsWithChildren, useEffect, useMemo, useState } from 'react'
+import { useForm } from 'react-hook-form'
 import { AWS_REGIONS, type CloudProvider } from 'shared-data'
+import { toast } from 'sonner'
 import type { NextPageWithLayout } from 'types'
-import { Button, Form_Shadcn_, FormField_Shadcn_ } from 'ui'
+import { Button, Form_Shadcn_, FormField_Shadcn_, useWatch_Shadcn_ } from 'ui'
 import { Admonition } from 'ui-patterns/admonition'
 import ConfirmationModal from 'ui-patterns/Dialogs/ConfirmationModal'
+import { z } from 'zod'
 
 const sizesWithNoCostConfirmationRequired: DesiredInstanceSize[] = ['micro', 'small']
 
@@ -71,7 +73,13 @@ const Wizard: NextPageWithLayout = () => {
   const track = useTrack()
   const router = useRouter()
   const { slug, projectName } = useParams()
+  const { appTitle } = useCustomContent(['app:title'])
   const defaultProvider = useDefaultProvider()
+  const { profile } = useProfile()
+  const pageTitle = buildStudioPageTitle({
+    section: 'New Project',
+    brand: appTitle || 'Supabase',
+  })
 
   const { data: currentOrg } = useSelectedOrganizationQuery()
   const isFreePlan = currentOrg?.plan?.id === 'free'
@@ -88,7 +96,11 @@ const Wizard: NextPageWithLayout = () => {
   const projectCreationDisabled = useFlag('disableProjectCreationAndUpdate')
   const showPostgresVersionSelector = useFlag('showPostgresVersionSelector')
   const cloudProviderEnabled = useFlag('enableFlyCloudProvider')
-  const isHomeNew = useFlag('homeNew')
+  const isDataApiGrantTogglesEnabled = useDataApiGrantTogglesEnabled()
+  // Read the raw flag for telemetry — useDataApiGrantTogglesEnabled coerces undefined→false,
+  // which would record false for users whose flags haven't loaded yet. The raw value preserves
+  // undefined (omitted from PostHog) so we only record true/false when the flag is resolved.
+  const tableEditorApiAccessToggleFlag = usePHFlag<boolean>('tableEditorApiAccessToggle')
 
   const showNonProdFields = process.env.NEXT_PUBLIC_ENVIRONMENT !== 'prod'
   const isNotOnHigherPlan = !['team', 'enterprise', 'platform'].includes(currentOrg?.plan.id ?? '')
@@ -103,20 +115,8 @@ const Wizard: NextPageWithLayout = () => {
   }
 
   const [allProjects, setAllProjects] = useState<OrgProject[] | undefined>(undefined)
-  const [passwordStrengthMessage, setPasswordStrengthMessage] = useState('')
-  const [passwordStrengthWarning, setPasswordStrengthWarning] = useState('')
   const [isComputeCostsConfirmationModalVisible, setIsComputeCostsConfirmationModalVisible] =
     useState(false)
-
-  FormSchema.superRefine(({ dbPassStrength }, refinementContext) => {
-    if (dbPassStrength < DEFAULT_MINIMUM_PASSWORD_STRENGTH) {
-      refinementContext.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['dbPass'],
-        message: passwordStrengthWarning || 'Password not secure enough',
-      })
-    }
-  })
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -124,26 +124,34 @@ const Wizard: NextPageWithLayout = () => {
     defaultValues: {
       organization: slug,
       projectName: projectName || '',
+      highAvailability: false,
       postgresVersion: '',
       cloudProvider: PROVIDERS[defaultProvider].id,
       dbPass: '',
       dbPassStrength: 0,
+      dbPassStrengthMessage: '',
       dbRegion: undefined,
       instanceSize: canChooseInstanceSize ? sizes[0] : undefined,
       dataApi: true,
-      useApiSchema: false,
+      enableRlsEventTrigger: false,
       postgresVersionSelection: '',
       useOrioleDb: false,
     },
   })
-  const { instanceSize: watchedInstanceSize, cloudProvider, dbRegion, organization } = form.watch()
+  const {
+    instanceSize: watchedInstanceSize,
+    cloudProvider,
+    dbRegion,
+    organization,
+    highAvailability,
+  } = useWatch_Shadcn_({ control: form.control })
 
   // [Charis] Since the form is updated in a useEffect, there is an edge case
   // when switching from free to paid, where canChooseInstanceSize is true for
   // an in-between render, but watchedInstanceSize is still undefined from the
   // form state carried over from the free plan. To avoid this, we set a
   // default instance size in this case.
-  const instanceSize = canChooseInstanceSize ? watchedInstanceSize ?? sizes[0] : undefined
+  const instanceSize = canChooseInstanceSize ? (watchedInstanceSize ?? sizes[0]) : undefined
 
   const { data: membersExceededLimit = [] } = useFreeProjectLimitCheckQuery(
     { slug },
@@ -224,16 +232,24 @@ const Wizard: NextPageWithLayout = () => {
 
   const canCreateProject = isAdmin && !freePlanWithExceedingLimits && !hasOutstandingInvoices
 
-  const dbRegionExact = smartRegionToExactRegion(dbRegion)
+  const dbRegionExact = smartRegionToExactRegion(dbRegion ?? '')
 
   const availableOrioleVersion = useAvailableOrioleImageVersion(
     {
       cloudProvider: cloudProvider as CloudProvider,
-      dbRegion: smartRegionEnabled ? dbRegionExact : dbRegion,
+      dbRegion: smartRegionEnabled ? dbRegionExact : (dbRegion ?? ''),
       organizationSlug: organization,
     },
     { enabled: currentOrg !== null }
   )
+
+  const userPrimaryEmail = profile?.primary_email?.toLowerCase()
+  const isUserAtFreeProjectLimit = userPrimaryEmail
+    ? membersExceededLimit.some(
+        (member) => member.primary_email?.toLowerCase() === userPrimaryEmail
+      )
+    : false
+  const shouldShowFreeProjectInfo = !!currentOrg && !isFreePlan && !isUserAtFreeProjectLimit
 
   const {
     mutate: createProject,
@@ -245,13 +261,19 @@ const Wizard: NextPageWithLayout = () => {
         'project_creation_simple_version_submitted',
         {
           instanceSize: form.getValues('instanceSize'),
+          enableRlsEventTrigger: form.getValues('enableRlsEventTrigger'),
+          dataApiEnabled: form.getValues('dataApi'),
+          useOrioleDb: form.getValues('useOrioleDb'),
+          ...(tableEditorApiAccessToggleFlag !== undefined && {
+            tableEditorApiAccessToggleEnabled: tableEditorApiAccessToggleFlag,
+          }),
         },
         {
           project: res.ref,
           organization: res.organization_slug,
         }
       )
-      router.push(isHomeNew ? `/project/${res.ref}` : `/project/${res.ref}/building`)
+      router.push(`/project/${res.ref}`)
     },
   })
 
@@ -276,12 +298,13 @@ const Wizard: NextPageWithLayout = () => {
     const {
       cloudProvider,
       projectName,
+      highAvailability,
       dbPass,
       dbRegion,
       postgresVersion,
       instanceSize,
       dataApi,
-      useApiSchema,
+      enableRlsEventTrigger,
       postgresVersionSelection,
       useOrioleDb,
     } = values
@@ -295,7 +318,7 @@ const Wizard: NextPageWithLayout = () => {
 
     const { smartGroup = [], specific = [] } = availableRegionsData?.all ?? {}
     const selectedRegion = smartRegionEnabled
-      ? smartGroup.find((x) => x.name === dbRegion) ?? specific.find((x) => x.name === dbRegion)
+      ? (smartGroup.find((x) => x.name === dbRegion) ?? specific.find((x) => x.name === dbRegion))
       : undefined
 
     const data: ProjectCreateVariables = {
@@ -303,15 +326,25 @@ const Wizard: NextPageWithLayout = () => {
       cloudProvider,
       organizationSlug: currentOrg.slug,
       name: projectName,
+      highAvailability,
       // gets ignored due to org billing subscription anyway
       dbPricingTierId: 'tier_free',
       // only set the compute size on pro+ plans. Free plans always use micro (nano in the future) size.
       dbInstanceSize: isFreePlan ? undefined : (instanceSize as DesiredInstanceSize),
       dataApiExposedSchemas: !dataApi ? [] : undefined,
-      dataApiUseApiSchema: !dataApi ? false : useApiSchema,
+      dataApiUseApiSchema: false,
       postgresEngine: useOrioleDb ? availableOrioleVersion?.postgres_engine : postgresEngine,
       releaseChannel: useOrioleDb ? availableOrioleVersion?.release_channel : releaseChannel,
       ...(smartRegionEnabled ? { regionSelection: selectedRegion } : { dbRegion }),
+      dbSql:
+        [
+          enableRlsEventTrigger && AUTO_ENABLE_RLS_EVENT_TRIGGER_SQL,
+          // [Alaister]: temporarily disable the default secure sql
+          // To re-enable, remove the false &&
+          false && isDataApiGrantTogglesEnabled && buildDefaultPrivilegesSql('revoke'),
+        ]
+          .filter(Boolean)
+          .join('\n') || undefined,
     }
 
     if (postgresVersion) {
@@ -379,150 +412,170 @@ const Wizard: NextPageWithLayout = () => {
   }, [instanceSize, watchedInstanceSize, form])
 
   return (
-    <Form_Shadcn_ {...form}>
-      <form onSubmit={form.handleSubmit(onSubmitWithComputeCostsConfirmation)}>
-        <Panel
-          loading={!isOrganizationsSuccess}
-          title={
-            <div key="panel-title">
-              <h3>Create a new project</h3>
-              <p className="text-sm text-foreground-lighter text-balance">
-                Your project will have its own dedicated instance and full Postgres database. An API
-                will be set up so you can easily interact with your new database.
+    <>
+      {/* Wizard layouts set the visual header but not the browser tab title. */}
+      <Head>
+        <title>{pageTitle}</title>
+        <meta name="description" content="Supabase Studio" />
+      </Head>
+      <Form_Shadcn_ {...form}>
+        <form onSubmit={form.handleSubmit(onSubmitWithComputeCostsConfirmation)}>
+          <Panel
+            loading={!isOrganizationsSuccess}
+            title={
+              <div key="panel-title">
+                <h3>Create a new project</h3>
+                <p className="text-sm text-foreground-lighter text-balance">
+                  Your project will have its own dedicated instance and full Postgres database. An
+                  API will be set up so you can easily interact with your new database.
+                </p>
+              </div>
+            }
+            footer={
+              <ProjectCreationFooter
+                form={form}
+                canCreateProject={canCreateProject}
+                instanceSize={instanceSize}
+                organizationProjects={organizationProjects}
+                isCreatingNewProject={isCreatingNewProject}
+                isSuccessNewProject={isSuccessNewProject}
+              />
+            }
+          >
+            <>
+              {projectCreationDisabled ? (
+                <DisabledWarningDueToIncident title="Project creation is currently disabled" />
+              ) : (
+                <div className="divide-y divide-border-muted">
+                  <OrganizationSelector form={form} />
+
+                  {canCreateProject && (
+                    <>
+                      <ProjectNameInput form={form} />
+                      <HighAvailabilityInput form={form} />
+
+                      {cloudProviderEnabled && showNonProdFields && (
+                        <CloudProviderSelector form={form} />
+                      )}
+
+                      {canChooseInstanceSize && <ComputeSizeSelector form={form} />}
+
+                      <DatabasePasswordInput form={form} />
+
+                      <RegionSelector
+                        form={form}
+                        instanceSize={instanceSize as DesiredInstanceSize}
+                      />
+
+                      {showPostgresVersionSelector && (
+                        <Panel.Content>
+                          <FormField_Shadcn_
+                            control={form.control}
+                            name="postgresVersionSelection"
+                            render={({ field }) => (
+                              <PostgresVersionSelector
+                                field={field}
+                                form={form}
+                                cloudProvider={form.getValues('cloudProvider') as CloudProvider}
+                                organizationSlug={slug}
+                                dbRegion={form.getValues('dbRegion')}
+                              />
+                            )}
+                          />
+                        </Panel.Content>
+                      )}
+
+                      {showNonProdFields && <CustomPostgresVersionInput form={form} />}
+
+                      <SecurityOptions form={form} />
+                      {showAdvancedConfig && !!availableOrioleVersion && (
+                        <AdvancedConfiguration form={form} />
+                      )}
+
+                      {shouldShowFreeProjectInfo ? (
+                        <Admonition
+                          className="rounded-none border-0 border-t"
+                          type="note"
+                          title="Need a free project?"
+                          description={
+                            <p>
+                              You can have up to 2 free projects across all organizations.{' '}
+                              <Link className="underline text-foreground" href="/new">
+                                Create a free organization
+                              </Link>{' '}
+                              to use them.
+                            </p>
+                          }
+                        />
+                      ) : null}
+                    </>
+                  )}
+
+                  {freePlanWithExceedingLimits ? (
+                    isAdmin &&
+                    slug && (
+                      <FreeProjectLimitWarning membersExceededLimit={membersExceededLimit || []} />
+                    )
+                  ) : hasOutstandingInvoices ? (
+                    <Panel.Content>
+                      <Admonition
+                        type="default"
+                        title="Your organization has overdue invoices"
+                        description={
+                          <div className="space-y-3">
+                            <p className="text-sm leading-normal">
+                              Please resolve all outstanding invoices first before creating a new
+                              project
+                            </p>
+
+                            <div>
+                              <Button asChild type="default">
+                                <Link href={`/org/${slug}/billing#invoices`}>View invoices</Link>
+                              </Button>
+                            </div>
+                          </div>
+                        }
+                      />
+                    </Panel.Content>
+                  ) : null}
+                </div>
+              )}
+            </>
+          </Panel>
+
+          <ConfirmationModal
+            size="large"
+            loading={false}
+            visible={isComputeCostsConfirmationModalVisible}
+            title="Confirm compute costs"
+            confirmLabel="I understand"
+            onCancel={() => setIsComputeCostsConfirmationModalVisible(false)}
+            onConfirm={async () => {
+              const values = form.getValues()
+              await onSubmit(values)
+              setIsComputeCostsConfirmationModalVisible(false)
+            }}
+            variant={'warning'}
+          >
+            <div className="text-sm text-foreground-light space-y-1">
+              <p>
+                Launching a project on compute size "{instanceLabel(instanceSize)}" increases your
+                monthly costs by ${additionalMonthlySpend}, independent of how actively you use it.
+                By clicking "I understand", you agree to the additional costs.{' '}
+                <Link
+                  href={`${DOCS_URL}/guides/platform/manage-your-usage/compute`}
+                  target="_blank"
+                  className="underline"
+                >
+                  Compute Costs
+                </Link>{' '}
+                are non-refundable.
               </p>
             </div>
-          }
-          footer={
-            <ProjectCreationFooter
-              form={form}
-              canCreateProject={canCreateProject}
-              instanceSize={instanceSize}
-              organizationProjects={organizationProjects}
-              isCreatingNewProject={isCreatingNewProject}
-              isSuccessNewProject={isSuccessNewProject}
-            />
-          }
-        >
-          <>
-            {projectCreationDisabled ? (
-              <DisabledWarningDueToIncident title="Project creation is currently disabled" />
-            ) : (
-              <div className="divide-y divide-border-muted">
-                <OrganizationSelector form={form} />
-
-                {canCreateProject && (
-                  <>
-                    <ProjectNameInput form={form} />
-
-                    {cloudProviderEnabled && showNonProdFields && (
-                      <CloudProviderSelector form={form} />
-                    )}
-
-                    {canChooseInstanceSize && <ComputeSizeSelector form={form} />}
-
-                    <DatabasePasswordInput
-                      form={form}
-                      passwordStrengthMessage={passwordStrengthMessage}
-                      setPasswordStrengthMessage={setPasswordStrengthMessage}
-                      setPasswordStrengthWarning={setPasswordStrengthWarning}
-                    />
-
-                    <RegionSelector
-                      form={form}
-                      instanceSize={instanceSize as DesiredInstanceSize}
-                    />
-
-                    {showPostgresVersionSelector && (
-                      <Panel.Content>
-                        <FormField_Shadcn_
-                          control={form.control}
-                          name="postgresVersionSelection"
-                          render={({ field }) => (
-                            <PostgresVersionSelector
-                              field={field}
-                              form={form}
-                              cloudProvider={form.getValues('cloudProvider') as CloudProvider}
-                              organizationSlug={slug}
-                              dbRegion={form.getValues('dbRegion')}
-                            />
-                          )}
-                        />
-                      </Panel.Content>
-                    )}
-
-                    {showNonProdFields && <CustomPostgresVersionInput form={form} />}
-
-                    <SecurityOptions form={form} />
-                    {showAdvancedConfig && !!availableOrioleVersion && (
-                      <AdvancedConfiguration form={form} />
-                    )}
-                  </>
-                )}
-
-                {freePlanWithExceedingLimits ? (
-                  isAdmin &&
-                  slug && (
-                    <FreeProjectLimitWarning membersExceededLimit={membersExceededLimit || []} />
-                  )
-                ) : hasOutstandingInvoices ? (
-                  <Panel.Content>
-                    <Admonition
-                      type="default"
-                      title="Your organization has overdue invoices"
-                      description={
-                        <div className="space-y-3">
-                          <p className="text-sm leading-normal">
-                            Please resolve all outstanding invoices first before creating a new
-                            project
-                          </p>
-
-                          <div>
-                            <Button asChild type="default">
-                              <Link href={`/org/${slug}/billing#invoices`}>View invoices</Link>
-                            </Button>
-                          </div>
-                        </div>
-                      }
-                    />
-                  </Panel.Content>
-                ) : null}
-              </div>
-            )}
-          </>
-        </Panel>
-
-        <ConfirmationModal
-          size="large"
-          loading={false}
-          visible={isComputeCostsConfirmationModalVisible}
-          title="Confirm compute costs"
-          confirmLabel="I understand"
-          onCancel={() => setIsComputeCostsConfirmationModalVisible(false)}
-          onConfirm={async () => {
-            const values = form.getValues()
-            await onSubmit(values)
-            setIsComputeCostsConfirmationModalVisible(false)
-          }}
-          variant={'warning'}
-        >
-          <div className="text-sm text-foreground-light space-y-1">
-            <p>
-              Launching a project on compute size "{instanceLabel(instanceSize)}" increases your
-              monthly costs by ${additionalMonthlySpend}, independent of how actively you use it. By
-              clicking "I understand", you agree to the additional costs.{' '}
-              <Link
-                href={`${DOCS_URL}/guides/platform/manage-your-usage/compute`}
-                target="_blank"
-                className="underline"
-              >
-                Compute Costs
-              </Link>{' '}
-              are non-refundable.
-            </p>
-          </div>
-        </ConfirmationModal>
-      </form>
-    </Form_Shadcn_>
+          </ConfirmationModal>
+        </form>
+      </Form_Shadcn_>
+    </>
   )
 }
 
@@ -531,7 +584,7 @@ const PageLayout = withAuth(({ children }: PropsWithChildren) => {
 })
 
 Wizard.getLayout = (page) => (
-  <DefaultLayout headerTitle="New project">
+  <DefaultLayout hideMobileMenu headerTitle="New project">
     <PageLayout>{page}</PageLayout>
   </DefaultLayout>
 )

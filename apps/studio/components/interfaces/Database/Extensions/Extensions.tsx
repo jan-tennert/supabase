@@ -6,7 +6,6 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'common'
 import InformationBox from 'components/ui/InformationBox'
 import { NoSearchResults } from 'components/ui/NoSearchResults'
-import { GenericSkeletonLoader } from 'components/ui/ShimmeringLoader'
 import { useDatabaseExtensionsQuery } from 'data/database-extensions/database-extensions-query'
 import { useAsyncCheckPermissions } from 'hooks/misc/useCheckPermissions'
 import { useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
@@ -21,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from 'ui'
+import { GenericSkeletonLoader } from 'ui-patterns/ShimmeringLoader'
 import { ExtensionRow } from './ExtensionRow'
 import { HIDDEN_EXTENSIONS, SEARCH_TERMS } from './Extensions.constants'
 
@@ -36,7 +36,7 @@ export const Extensions = () => {
 
   const extensions =
     filterString.length === 0
-      ? data ?? []
+      ? (data ?? [])
       : (data ?? []).filter((ext) => {
           const nameMatchesSearch = ext.name.toLowerCase().includes(filterString.toLowerCase())
           const searchTermsMatchesSearch = (SEARCH_TERMS[ext.name] || []).some((x) =>

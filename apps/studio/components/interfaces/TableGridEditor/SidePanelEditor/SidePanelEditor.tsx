@@ -1,12 +1,14 @@
+import * as Sentry from '@sentry/nextjs'
 import type { PostgresColumn, PostgresTable } from '@supabase/postgres-meta'
 import { useQueryClient } from '@tanstack/react-query'
-import { isEmpty, isUndefined, noop } from 'lodash'
-import { useState } from 'react'
-import { toast } from 'sonner'
-
 import { useParams } from 'common'
+import {
+  queueCellEditWithOptimisticUpdate,
+  queueRowAddWithOptimisticUpdate,
+} from 'components/grid/utils/queueOperationUtils'
+import { useIsQueueOperationsEnabled } from 'components/interfaces/App/FeaturePreview/FeaturePreviewContext'
 import { type GeneratedPolicy } from 'components/interfaces/Auth/Policies/Policies.utils'
-import { useDatabasePolicyCreateMutation } from 'data/database-policies/database-policy-create-mutation'
+import { DiscardChangesConfirmationDialog } from 'components/ui-patterns/Dialogs/DiscardChangesConfirmationDialog'
 import { databasePoliciesKeys } from 'data/database-policies/keys'
 import { useDatabasePublicationCreateMutation } from 'data/database-publications/database-publications-create-mutation'
 import { useDatabasePublicationsQuery } from 'data/database-publications/database-publications-query'
@@ -16,8 +18,10 @@ import type { ForeignKeyConstraint } from 'data/database/foreign-key-constraints
 import { databaseKeys } from 'data/database/keys'
 import { ENTITY_TYPE } from 'data/entity-types/entity-type-constants'
 import { entityTypeKeys } from 'data/entity-types/keys'
+import { lintKeys } from 'data/lint/keys'
+import { privilegeKeys } from 'data/privileges/keys'
 import { tableEditorKeys } from 'data/table-editor/keys'
-import { isTableLike } from 'data/table-editor/table-editor-types'
+import { isTableLike, type Entity } from 'data/table-editor/table-editor-types'
 import { tableRowKeys } from 'data/table-rows/keys'
 import { useTableRowCreateMutation } from 'data/table-rows/table-row-create-mutation'
 import { useTableRowUpdateMutation } from 'data/table-rows/table-row-update-mutation'
@@ -26,18 +30,21 @@ import { RetrieveTableResult } from 'data/tables/table-retrieve-query'
 import { getTables } from 'data/tables/tables-query'
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
-import { useConfirmOnClose, type ConfirmOnCloseModalProps } from 'hooks/ui/useConfirmOnClose'
-import { usePHFlag } from 'hooks/ui/useFlag'
+import { useConfirmOnClose } from 'hooks/ui/useConfirmOnClose'
 import { useUrlState } from 'hooks/ui/useUrlState'
 import { useTrack } from 'lib/telemetry/track'
+import { isEmpty, isUndefined, noop } from 'lodash'
+import { useState } from 'react'
+import { toast } from 'sonner'
 import { useGetImpersonatedRoleState } from 'state/role-impersonation-state'
-import { useTableEditorStateSnapshot } from 'state/table-editor'
+import { useTableEditorStateSnapshot, type TableEditorState } from 'state/table-editor'
 import { createTabId, useTabsStateSnapshot } from 'state/tabs'
 import type { Dictionary } from 'types'
 import { SonnerProgress } from 'ui'
-import { ConfirmationModal } from 'ui-patterns/Dialogs/ConfirmationModal'
+
 import { ColumnEditor } from './ColumnEditor/ColumnEditor'
 import type { ForeignKey } from './ForeignKeySelector/ForeignKeySelector.types'
+import { OperationQueueSidePanel } from './OperationQueueSidePanel/OperationQueueSidePanel'
 import { ForeignRowSelector } from './RowEditor/ForeignRowSelector/ForeignRowSelector'
 import { JsonEditor } from './RowEditor/JsonEditor'
 import { RowEditor } from './RowEditor/RowEditor'
@@ -49,14 +56,23 @@ import {
   createColumn,
   createTable,
   duplicateTable,
+  getRowFromSidePanel,
   insertRowsViaSpreadsheet,
   insertTableRows,
   updateColumn,
   updateTable,
 } from './SidePanelEditor.utils'
 import { SpreadsheetImport } from './SpreadsheetImport/SpreadsheetImport'
+import {
+  useTableApiAccessHandlerWithHistory,
+  type TableApiAccessParams,
+} from './TableEditor/ApiAccessToggle'
 import { TableEditor } from './TableEditor/TableEditor'
 import type { ImportContent } from './TableEditor/TableEditor.types'
+import { useTableApiAccessPrivilegesMutation } from '@/data/privileges/table-api-access-mutation'
+import { useDataApiGrantTogglesEnabled } from '@/hooks/misc/useDataApiGrantTogglesEnabled'
+import { type ApiPrivilegesByRole } from '@/lib/data-api-types'
+import type { DeepReadonly, Prettify } from '@/lib/type-helpers'
 
 export type SaveTableParams =
   | SaveTableParamsNew
@@ -87,6 +103,12 @@ type SaveTableParamsExisting = SaveTableParamsBase & {
 }
 
 type SaveTablePayloadBase = {
+  /**
+   * Comment to set on the table
+   *
+   * `null` removes existing comment
+   * `undefined` leaves comment unchanged
+   */
   comment?: string | null
 }
 
@@ -104,7 +126,7 @@ type SaveTablePayloadExisting = SaveTablePayloadBase & {
   rls_enabled?: boolean
 }
 
-type SaveTableConfiguration = {
+type SaveTableConfiguration = Prettify<{
   tableId?: number
   importContent?: ImportContent
   isRLSEnabled: boolean
@@ -112,6 +134,47 @@ type SaveTableConfiguration = {
   isDuplicateRows: boolean
   existingForeignKeyRelations: ForeignKeyConstraint[]
   primaryKey?: Constraint
+}>
+
+const DUMMY_TABLE_API_ACCESS_PARAMS: TableApiAccessParams = {
+  type: 'new',
+}
+
+const createTableApiAccessHandlerParams = ({
+  enabled,
+  snap,
+  selectedTable,
+}: {
+  enabled: boolean
+  snap: DeepReadonly<TableEditorState>
+  selectedTable?: PostgresTable
+}): TableApiAccessParams | undefined => {
+  if (!enabled) return undefined
+
+  const tableSidePanel = snap.sidePanel?.type === 'table' ? snap.sidePanel : undefined
+  if (!tableSidePanel) return undefined
+
+  if (tableSidePanel.mode === 'new') {
+    return {
+      type: 'new',
+    }
+  }
+
+  if (!selectedTable) return undefined
+
+  if (tableSidePanel.mode === 'duplicate') {
+    return {
+      type: 'duplicate',
+      templateSchemaName: selectedTable.schema,
+      templateTableName: selectedTable.name,
+    }
+  }
+
+  return {
+    type: 'edit',
+    schemaName: selectedTable.schema,
+    tableName: selectedTable.name,
+  }
 }
 
 export interface SidePanelEditorProps {
@@ -140,7 +203,9 @@ export const SidePanelEditor = ({
   const { data: project } = useSelectedProjectQuery()
   const { data: org } = useSelectedOrganizationQuery()
   const getImpersonatedRoleState = useGetImpersonatedRoleState()
-  const generatePoliciesFlag = usePHFlag<boolean>('tableCreateGeneratePolicies')
+
+  const isApiGrantTogglesEnabled = useDataApiGrantTogglesEnabled()
+  const isQueueOperationsEnabled = useIsQueueOperationsEnabled()
 
   const [isEdited, setIsEdited] = useState<boolean>(false)
 
@@ -149,7 +214,20 @@ export const SidePanelEditor = ({
     connectionString: project?.connectionString,
   })
 
-  const { confirmOnClose, modalProps: closeConfirmationModalProps } = useConfirmOnClose({
+  const tableApiAccessParams = createTableApiAccessHandlerParams({
+    enabled: isApiGrantTogglesEnabled,
+    snap,
+    selectedTable,
+  })
+  const apiAccessToggleHandler = useTableApiAccessHandlerWithHistory(
+    // Dummy params used to appease TypeScript, actually gated by enabled flag
+    tableApiAccessParams ?? DUMMY_TABLE_API_ACCESS_PARAMS,
+    {
+      enabled: tableApiAccessParams !== undefined,
+    }
+  )
+
+  const { confirmOnClose, modalProps } = useConfirmOnClose({
     checkIsDirty: () => isEdited,
     onClose: () => {
       setIsEdited(false)
@@ -168,7 +246,7 @@ export const SidePanelEditor = ({
       toast.success('Successfully created row')
     },
   })
-  const { mutateAsync: updateTableRow } = useTableRowUpdateMutation({
+  const { mutateAsync: updateTableRow, isPending: isUpdatingRow } = useTableRowUpdateMutation({
     onSuccess() {
       toast.success('Successfully updated row')
     },
@@ -177,7 +255,7 @@ export const SidePanelEditor = ({
   const { mutateAsync: updatePublication } = useDatabasePublicationUpdateMutation({
     onError: () => {},
   })
-  const { mutateAsync: createPolicy } = useDatabasePolicyCreateMutation({
+  const { mutateAsync: updateApiPrivileges } = useTableApiAccessPrivilegesMutation({
     onError: () => {}, // Errors handled inline
   })
 
@@ -186,7 +264,7 @@ export const SidePanelEditor = ({
   const saveRow = async (
     payload: any,
     isNewRecord: boolean,
-    configuration: { identifiers: any; rowIdx: number },
+    configuration: { identifiers: any; rowIdx: number; createMore?: boolean },
     onComplete: (err?: any) => void
   ) => {
     if (!project || selectedTable === undefined) {
@@ -195,6 +273,23 @@ export const SidePanelEditor = ({
 
     let saveRowError: Error | undefined
     if (isNewRecord) {
+      // Queue the ADD_ROW operation if queue operations feature is enabled
+      if (isQueueOperationsEnabled && selectedTable.primary_keys.length > 0) {
+        queueRowAddWithOptimisticUpdate({
+          queueOperation: snap.queueOperation,
+          tableId: selectedTable.id,
+          table: selectedTable as unknown as Entity,
+          rowData: payload,
+          enumArrayColumns,
+        })
+
+        // Close panel immediately without error
+        onComplete()
+        setIsEdited(false)
+        if (!configuration.createMore) snap.closeSidePanel()
+        return
+      }
+
       try {
         await createTableRows({
           projectRef: project.ref,
@@ -211,6 +306,47 @@ export const SidePanelEditor = ({
       const hasChanges = !isEmpty(payload)
       if (hasChanges) {
         if (selectedTable.primary_keys.length > 0) {
+          // Queue the operation if queue operations feature is enabled
+          if (isQueueOperationsEnabled) {
+            const changedColumn = Object.keys(payload)[0]
+            if (!changedColumn) {
+              saveRowError = new Error('No changed column')
+              toast.error('No changed column')
+              onComplete(saveRowError)
+              return
+            }
+
+            const row = getRowFromSidePanel(snap.sidePanel)
+
+            if (!row) {
+              saveRowError = new Error('No row found')
+              toast.error('No row found')
+              onComplete(saveRowError)
+              return
+            }
+
+            const oldValue = row[changedColumn]
+
+            queueCellEditWithOptimisticUpdate({
+              queueOperation: snap.queueOperation,
+              tableId: selectedTable.id,
+              // Cast to Entity - the queue save mutation only uses id, name, schema
+              table: selectedTable as unknown as Entity,
+              row,
+              rowIdentifiers: configuration.identifiers,
+              columnName: changedColumn,
+              oldValue: oldValue,
+              newValue: payload[changedColumn],
+              enumArrayColumns,
+            })
+
+            // Close panel immediately without error
+            onComplete()
+            setIsEdited(false)
+            snap.closeSidePanel()
+            return
+          }
+
           try {
             await updateTableRow({
               projectRef: project.ref,
@@ -236,7 +372,7 @@ export const SidePanelEditor = ({
     onComplete(saveRowError)
     if (!saveRowError) {
       setIsEdited(false)
-      snap.closeSidePanel()
+      if (!configuration.createMore) snap.closeSidePanel()
     }
   }
 
@@ -302,6 +438,7 @@ export const SidePanelEditor = ({
       primaryKey?: Constraint
       foreignKeyRelations: ForeignKey[]
       existingForeignKeyRelations: ForeignKeyConstraint[]
+      createMore?: boolean
     },
     resolve: any
   ) => {
@@ -355,6 +492,9 @@ export const SidePanelEditor = ({
           queryKey: databaseKeys.tableDefinition(project?.ref, selectedTable?.id),
         }),
         queryClient.invalidateQueries({ queryKey: entityTypeKeys.list(project?.ref) }),
+        queryClient.invalidateQueries({
+          queryKey: tableKeys.list(project?.ref, selectedTable?.schema, includeColumns),
+        }),
       ])
 
       // We need to invalidate tableRowsAndCount after tableEditor
@@ -364,10 +504,10 @@ export const SidePanelEditor = ({
       })
 
       setIsEdited(false)
-      snap.closeSidePanel()
+      if (!configuration.createMore) snap.closeSidePanel()
     }
 
-    resolve()
+    resolve(response?.error)
   }
 
   /**
@@ -481,6 +621,26 @@ export const SidePanelEditor = ({
     }
   }
 
+  const updateTableApiAccess = async (
+    table: RetrieveTableResult,
+    privileges: DeepReadonly<ApiPrivilegesByRole>
+  ) => {
+    if (!project) return console.error('Project is required')
+
+    try {
+      await updateApiPrivileges({
+        projectRef: project.ref,
+        connectionString: project.connectionString ?? undefined,
+        relationId: table.id,
+        privileges,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : undefined
+      const toastDetail = message ? `: ${message}` : ''
+      toast.error(`Failed to update API access privileges for ${table.name}${toastDetail}`)
+    }
+  }
+
   const saveTable = async ({
     action,
     payload,
@@ -493,6 +653,19 @@ export const SidePanelEditor = ({
     let toastId
     let saveTableError = false
 
+    if (isApiGrantTogglesEnabled && !apiAccessToggleHandler.isSuccess) {
+      if (apiAccessToggleHandler.isPending) {
+        toast.info(
+          'Cannot save table yet because Data API settings are still loading. Please try again in a moment.'
+        )
+      } else {
+        toast.error(
+          'Cannot save table because there was an error loading Data API settings. Please refresh the page and try again.'
+        )
+      }
+      return
+    }
+
     const {
       importContent,
       isRLSEnabled,
@@ -504,64 +677,137 @@ export const SidePanelEditor = ({
 
     try {
       if (action === 'create') {
-        toastId = toast.loading(`Creating new table: ${payload.name}...`)
+        await Sentry.startSpan(
+          {
+            name: 'Create Table',
+            op: 'db.table.create',
+          },
+          async (createTableSpan) => {
+            toastId = toast.loading(`Creating new table: ${payload.name}...`)
 
-        const { table, failedPolicies } = await createTable({
-          projectRef: project?.ref!,
-          connectionString: project?.connectionString,
-          toastId,
-          payload,
-          columns,
-          foreignKeyRelations,
-          isRLSEnabled,
-          importContent,
-          organizationSlug: org?.slug,
-          generatedPolicies,
-          onCreatePoliciesSuccess: () => track('rls_generated_policies_created'),
-        })
+            // Get existing table count from cache — try entity types first (always loaded
+            // by the Table Editor sidebar), then fall back to tables query cache.
+            // Entity types uses useInfiniteQuery, so the cache shape is { pages: [...] }.
+            // Each page has data.count (total count from SQL count(*) over()).
+            const entityTypesEntries = queryClient.getQueriesData<{
+              pages?: Array<{ data?: { count?: number } }>
+            }>({
+              queryKey: ['projects', project?.ref, 'entity-types'],
+            })
+            const existingTableCount =
+              entityTypesEntries
+                .map(([, data]) => data?.pages?.[0]?.data?.count)
+                .find((count) => typeof count === 'number') ??
+              queryClient.getQueryData<unknown[]>(
+                tableKeys.list(project?.ref, payload.schema, true)
+              )?.length ??
+              queryClient.getQueryData<unknown[]>(
+                tableKeys.list(project?.ref, payload.schema, false)
+              )?.length
 
-        if (isRealtimeEnabled) await updateTableRealtime(table, true)
+            createTableSpan.setAttributes({
+              'table.name': payload.name,
+              'table.schema': payload.schema ?? 'public',
+              'table.columns_count': columns.length,
+              'table.has_rls': isRLSEnabled ? 1 : 0,
+              'table.has_foreign_keys': foreignKeyRelations.length > 0 ? 1 : 0,
+              'table.has_import': importContent !== undefined ? 1 : 0,
+              'table.generated_policies_count': generatedPolicies.length,
+              'project.region': project?.region ?? 'local',
+              ...(project?.cloud_provider && {
+                'project.cloud_provider': project.cloud_provider,
+              }),
+              ...(existingTableCount != null && {
+                'project.existing_table_count': String(existingTableCount),
+              }),
+            })
 
-        // Invalidate queries for table creation
-        await Promise.all([
-          queryClient.invalidateQueries({
-            queryKey: tableKeys.list(project?.ref, table.schema, includeColumns),
-          }),
-          queryClient.invalidateQueries({ queryKey: entityTypeKeys.list(project?.ref) }),
-          queryClient.invalidateQueries({ queryKey: databasePoliciesKeys.list(project?.ref) }),
-        ])
+            try {
+              const { table, failedPolicies } = await createTable({
+                projectRef: project?.ref!,
+                connectionString: project?.connectionString,
+                toastId,
+                payload,
+                columns,
+                foreignKeyRelations,
+                isRLSEnabled,
+                importContent,
+                organizationSlug: org?.slug,
+                generatedPolicies,
+                onCreatePoliciesSuccess: () => track('rls_generated_policies_created'),
+              })
 
-        // Show success toast after everything is complete
-        if (failedPolicies.length > 0) {
-          toast.success(
-            `Table ${table.name} is created successfully, but we ran into issues creating ${failedPolicies.length} policie${failedPolicies.length > 1 ? 's' : ''}`,
-            {
-              id: toastId,
-              description: (
-                <ul className="list-disc pl-6">
-                  {failedPolicies.map((x) => (
-                    <li key={x.name}>{x.name}</li>
-                  ))}
-                </ul>
-              ),
+              createTableSpan.setAttribute('table.created', 1)
+              createTableSpan.setAttribute('table.failed_policies', failedPolicies.length)
+
+              await Sentry.startSpan(
+                { name: 'create_table.post_creation', op: 'db.table.post_creation' },
+                async () => {
+                  if (isRealtimeEnabled) await updateTableRealtime(table, true)
+
+                  if (isApiGrantTogglesEnabled) {
+                    const privilegesToSet = apiAccessToggleHandler.data?.schemaExposed
+                      ? apiAccessToggleHandler.data.privileges
+                      : undefined
+                    if (privilegesToSet) {
+                      await updateTableApiAccess(table, privilegesToSet)
+                    }
+                  }
+                }
+              )
+
+              // Invalidate queries for table creation
+              await Sentry.startSpan(
+                { name: 'create_table.cache_invalidation', op: 'cache.invalidate' },
+                async () => {
+                  await Promise.all([
+                    queryClient.invalidateQueries({
+                      queryKey: tableKeys.list(project?.ref, table.schema, includeColumns),
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: entityTypeKeys.list(project?.ref),
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: databasePoliciesKeys.list(project?.ref),
+                    }),
+                    queryClient.invalidateQueries({
+                      queryKey: privilegeKeys.tablePrivilegesList(project?.ref),
+                    }),
+                    queryClient.invalidateQueries({ queryKey: lintKeys.lint(project?.ref) }),
+                  ])
+                }
+              )
+
+              // Show success toast after everything is complete
+              if (failedPolicies.length > 0) {
+                toast.success(
+                  `Table ${table.name} is created successfully, but we ran into issues creating ${failedPolicies.length} policie${failedPolicies.length > 1 ? 's' : ''}`,
+                  {
+                    id: toastId,
+                    description: (
+                      <ul className="list-disc pl-6">
+                        {failedPolicies.map((x) => (
+                          <li key={x.name}>{x.name}</li>
+                        ))}
+                      </ul>
+                    ),
+                  }
+                )
+              } else {
+                toast.success(`Table ${table.name} is good to go!`, { id: toastId })
+              }
+
+              onTableCreated(table)
+            } catch (error) {
+              createTableSpan.setAttribute('table.error', 1)
+              Sentry.captureException(error, {
+                tags: { workflow: 'create-table' },
+              })
+              saveTableError = true
+              throw error
             }
-          )
-        } else {
-          toast.success(`Table ${table.name} is good to go!`, { id: toastId })
-        }
-
-        // Track experiment conversion if user is in the experiment
-        if (generatePoliciesFlag !== undefined) {
-          track('table_create_generate_policies_experiment_converted', {
-            experiment_id: 'tableCreateGeneratePolicies',
-            variant: generatePoliciesFlag ? 'treatment' : 'control',
-            has_rls_enabled: isRLSEnabled,
-            has_rls_policies: generatedPolicies.length > 0,
-            has_generated_policies: generatedPolicies.length > 0,
-          })
-        }
-
-        onTableCreated(table)
+          }
+        )
       } else if (action === 'duplicate' && !!selectedTable) {
         const tableToDuplicate = selectedTable
         toastId = toast.loading(`Duplicating table: ${tableToDuplicate.name}...`)
@@ -574,11 +820,24 @@ export const SidePanelEditor = ({
         })
         if (isRealtimeEnabled) await updateTableRealtime(table, isRealtimeEnabled)
 
+        if (isApiGrantTogglesEnabled) {
+          const privilegesToSet = apiAccessToggleHandler.data?.schemaExposed
+            ? apiAccessToggleHandler.data.privileges
+            : undefined
+          if (privilegesToSet) {
+            await updateTableApiAccess(table, privilegesToSet)
+          }
+        }
+
         await Promise.all([
           queryClient.invalidateQueries({
             queryKey: tableKeys.list(project?.ref, table.schema, includeColumns),
           }),
           queryClient.invalidateQueries({ queryKey: entityTypeKeys.list(project?.ref) }),
+          queryClient.invalidateQueries({
+            queryKey: privilegeKeys.tablePrivilegesList(project?.ref),
+          }),
+          queryClient.invalidateQueries({ queryKey: lintKeys.lint(project?.ref) }),
         ])
 
         toast.success(
@@ -607,6 +866,14 @@ export const SidePanelEditor = ({
         }
         if (isTableLike(table)) {
           await updateTableRealtime(table, isRealtimeEnabled)
+          if (isApiGrantTogglesEnabled) {
+            const privilegesToSet = apiAccessToggleHandler.data?.schemaExposed
+              ? apiAccessToggleHandler.data.privileges
+              : undefined
+            if (privilegesToSet) {
+              await updateTableApiAccess(table, privilegesToSet)
+            }
+          }
         }
 
         if (hasError) {
@@ -754,6 +1021,7 @@ export const SidePanelEditor = ({
         closePanel={onClosePanel}
         saveChanges={saveTable}
         updateEditorDirty={() => setIsEdited(true)}
+        apiAccessToggleHandler={apiAccessToggleHandler}
       />
       <SchemaEditor
         visible={snap.sidePanel?.type === 'schema'}
@@ -785,6 +1053,7 @@ export const SidePanelEditor = ({
             ? snap.sidePanel.foreignKey.foreignKey
             : undefined
         }
+        isSaving={isUpdatingRow}
         closePanel={onClosePanel}
         onSelect={onSaveForeignRow}
       />
@@ -795,22 +1064,8 @@ export const SidePanelEditor = ({
         closePanel={onClosePanel}
         updateEditorDirty={setIsEdited}
       />
-      <CloseConfirmationModal {...closeConfirmationModalProps} />
+      <OperationQueueSidePanel />
+      <DiscardChangesConfirmationDialog {...modalProps} />
     </>
   )
 }
-
-const CloseConfirmationModal = ({ visible, onClose, onCancel }: ConfirmOnCloseModalProps) => (
-  <ConfirmationModal
-    visible={visible}
-    title="Discard changes"
-    confirmLabel="Discard"
-    onCancel={onCancel}
-    onConfirm={onClose}
-  >
-    <p className="text-sm text-foreground-light">
-      There are unsaved changes. Are you sure you want to close the panel? Your changes will be
-      lost.
-    </p>
-  </ConfirmationModal>
-)

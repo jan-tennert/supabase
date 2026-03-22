@@ -1,9 +1,4 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { PropsWithChildren, useState } from 'react'
-import { SubmitHandler, useForm } from 'react-hook-form'
-import { toast } from 'sonner'
-import z from 'zod'
-
 import { useOrganizationRolesV2Query } from 'data/organization-members/organization-roles-query'
 import { useOrganizationMembersQuery } from 'data/organizations/organization-members-query'
 import {
@@ -13,6 +8,9 @@ import {
 import { useSelectedOrganizationQuery } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProjectQuery } from 'hooks/misc/useSelectedProject'
 import { useTrack } from 'lib/telemetry/track'
+import { PropsWithChildren, useState } from 'react'
+import { SubmitHandler, useForm } from 'react-hook-form'
+import { toast } from 'sonner'
 import {
   Badge,
   Button,
@@ -34,6 +32,7 @@ import {
   TooltipTrigger,
 } from 'ui'
 import { FormItemLayout } from 'ui-patterns/form/FormItemLayout/FormItemLayout'
+import z from 'zod'
 
 const FormSchema = z.object({
   note: z.string().optional(),
@@ -44,9 +43,10 @@ const formId = 'request-upgrade-form'
 interface RequestUpgradeToBillingOwnersProps {
   block?: boolean
   plan?: PlanRequest
-  addon?: 'pitr' | 'customDomain' | 'spendCap' | 'computeSize'
+  addon?: 'pitr' | 'customDomain' | 'ipv4' | 'spendCap' | 'computeSize'
   /** Used in the default message template, e.g: "Upgrade to ..." */
   featureProposition?: string
+  className?: string
 }
 
 export const RequestUpgradeToBillingOwners = ({
@@ -55,6 +55,7 @@ export const RequestUpgradeToBillingOwners = ({
   addon,
   featureProposition,
   children,
+  className,
 }: PropsWithChildren<RequestUpgradeToBillingOwnersProps>) => {
   const [open, setOpen] = useState(false)
   const track = useTrack()
@@ -81,7 +82,13 @@ export const RequestUpgradeToBillingOwners = ({
   })
 
   const formattedAddonName =
-    addon === 'pitr' ? 'PITR' : addon === 'customDomain' ? 'Custom Domain' : ''
+    addon === 'pitr'
+      ? 'PITR'
+      : addon === 'customDomain'
+        ? 'Custom domain'
+        : addon === 'ipv4'
+          ? 'dedicated IPv4 address'
+          : ''
 
   const target = !!project
     ? `for the project "${project?.name}"`
@@ -154,7 +161,7 @@ export const RequestUpgradeToBillingOwners = ({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button block={block} type="primary">
+        <Button block={block} type="primary" className={className}>
           {buttonText}
         </Button>
       </DialogTrigger>
