@@ -402,7 +402,7 @@ functions:
               .select {
                   count(Count.EXACT)
               }
-              .countOrNull()!!
+              .countOrNull() ?: 0
           ```
       - id: querying-json-data
         name: Querying JSON data
@@ -646,7 +646,7 @@ functions:
           val count = supabase.from("users").upsert(toUpsert) {
               count(Count.EXACT)
               onConflict = "username"
-          }.countOrNull()
+          }.countOrNull() ?: 0
           ```
 
   - id: delete
