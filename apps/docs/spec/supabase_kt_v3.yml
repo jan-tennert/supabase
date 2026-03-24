@@ -5324,7 +5324,7 @@ functions:
     params:
       - name: name
         isOptional: false
-        type: string
+        type: String
         description: The name of the vector bucket to retrieve.
     examples:
       - id: get-vector-bucket
