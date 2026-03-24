@@ -29,11 +29,11 @@ functions:
       ### OAuth and OTP link verification
 
       [supabase-kt](https://github.com/supabase-community/supabase-kt) provides several platform implementations for OAuth and OTP link verification.
-      
+ 
       OAuth sign-ins can be triggered via `supabase.auth.signInWith(Provider)` and the callback has to be handled differently on each Kotlin target.
-      
+    
       OTP link verification stands for opening your app, and directly signing-in via the clicked link. This is only supported on Mobile devices & Web targets.
-  
+
       The following will explain how each target handles OAuth and OTP link verification, if supported.
 
       **On Desktop platforms (JVM, MacOS\*, Linux, Windows)**, it uses a HTTP Callback Server to receive the session data from a successful OAuth login. The success page can be customized via `AuthConfig#httpCallbackConfig` \
@@ -5221,26 +5221,31 @@ functions:
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: limit
-        isOptional: true
-        type: Int
-        description: Maximum number of buckets to return.
-      - name: offset
-        isOptional: true
-        type: Int
-        description: Number of buckets to skip.
-      - name: sortColumn
-        isOptional: true
-        type: BucketSortColumn
-        description: 'Column to sort by. Options: `BucketSortColumn.ID`, `BucketSortColumn.NAME`, `BucketSortColumn.CREATED_AT`, `BucketSortColumn.UPDATED_AT`.'
-      - name: sortOrder
-        isOptional: true
-        type: SortOrder
-        description: 'Sort order. Options: `SortOrder.ASC`, `SortOrder.DESC`.'
-      - name: search
-        isOptional: true
-        type: String
-        description: Search term to filter buckets by name.
+      - name: filter
+        isOptional: false
+        type: StorageListFilter.Buckets.() -> Unit
+        description: Filter block for the operation.
+        subContent:
+          - name: limit
+            isOptional: true
+            type: Int
+            description: Maximum number of buckets to return.
+          - name: offset
+            isOptional: true
+            type: Int
+            description: Number of buckets to skip.
+          - name: sortColumn
+            isOptional: true
+            type: BucketSortColumn
+            description: 'Column to sort by. Options: `BucketSortColumn.ID`, `BucketSortColumn.NAME`, `BucketSortColumn.CREATED_AT`, `BucketSortColumn.UPDATED_AT`.'
+          - name: sortOrder
+            isOptional: true
+            type: SortOrder
+            description: 'Sort order. Options: `SortOrder.ASC`, `SortOrder.DESC`.'
+          - name: search
+            isOptional: true
+            type: String
+            description: Search term to filter buckets by name.
     examples:
       - id: list-analytics-buckets
         name: List analytics buckets
@@ -5350,18 +5355,23 @@ functions:
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: prefix
-        isOptional: true
-        type: String
-        description: Filter buckets by name prefix.
-      - name: maxResults
-        isOptional: true
-        type: Int
-        description: Maximum number of buckets to return.
-      - name: nextToken
-        isOptional: true
-        type: String
-        description: Token for pagination.
+      - name: filter
+        isOptional: false
+        type: VectorBucketFilter.() -> Unit
+        description: Filter block for the operation.
+        subContent:
+          - name: prefix
+            isOptional: true
+            type: String
+            description: Filter buckets by name prefix.
+          - name: maxResults
+            isOptional: true
+            type: Int
+            description: Maximum number of buckets to return.
+          - name: nextToken
+            isOptional: true
+            type: String
+            description: Token for pagination.
     examples:
       - id: list-vector-buckets
         name: List vector buckets
@@ -5406,36 +5416,37 @@ functions:
           ```
 
   - id: vectorbucket-createindex
-    title: 'vectors.from_().createIndex()'
+    title: 'vectors.from().createIndex()'
     description: |
       Creates a new vector index in a vector bucket.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
+      - name: options
         isOptional: false
-        type: String
-        description: The name of the vector bucket.
-      - name: indexName
-        isOptional: false
-        type: String
-        description: The name of the index to create.
-      - name: dimension
-        isOptional: false
-        type: Int
-        description: The dimension of the vectors in this index.
-      - name: distanceMetric
-        isOptional: false
-        type: DistanceMetric
-        description: 'The distance metric to use. Options: `cosine`, `euclidean`.'
-      - name: dataType
-        isOptional: false
-        type: VectorDataType
-        description: The data type of the vectors.
-      - name: metadataConfiguration
-        isOptional: true
-        type: MetadataConfiguration
-        description: Optional metadata configuration for the index.
+        type: CreateIndexOptions.() -> Unit
+        description: Configuration block for the operation.
+        subContent:
+          - name: indexName
+            isOptional: false
+            type: String
+            description: The name of the index to create.
+          - name: dimension
+            isOptional: false
+            type: Int
+            description: The dimension of the vectors in this index.
+          - name: distanceMetric
+            isOptional: false
+            type: DistanceMetric
+            description: 'The distance metric to use. Options: `DistanceMetric.COSINE`, `DistanceMetric.EUCLIDEAN`.'
+          - name: dataType
+            isOptional: false
+            type: VectorDataType
+            description: The data type of the vectors.
+          - name: metadataConfiguration
+            isOptional: true
+            type: MetadataConfiguration
+            description: Optional metadata configuration for the index.
     examples:
       - id: create-vector-index
         name: Create vector index
@@ -5452,16 +5463,12 @@ functions:
           ```
 
   - id: vectorbucket-getindex
-    title: 'vectors.from_().getIndex()'
+    title: 'vectors.from().getIndex()'
     description: |
       Retrieves details of a vector index.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
-        isOptional: false
-        type: String
-        description: The name of the vector bucket.
       - name: indexName
         isOptional: false
         type: String
@@ -5477,28 +5484,29 @@ functions:
           ```
 
   - id: vectorbucket-listindexes
-    title: 'vectors.from_().listIndexes()'
+    title: 'vectors.from().listIndexes()'
     description: |
       Lists all indexes in a vector bucket.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
+      - name: options
         isOptional: false
-        type: String
-        description: The name of the vector bucket.
-      - name: nextToken
-        isOptional: true
-        type: String
-        description: Token for pagination.
-      - name: maxResults
-        isOptional: true
-        type: Int
-        description: Maximum number of indexes to return.
-      - name: prefix
-        isOptional: true
-        type: String
-        description: Filter indexes by name prefix.
+        type: ListIndexesOptions.() -> Unit
+        description: Configuration block for the operation.
+        subContent:
+          - name: nextToken
+            isOptional: true
+            type: String
+            description: Token for pagination.
+          - name: maxResults
+            isOptional: true
+            type: Int
+            description: Maximum number of indexes to return.
+          - name: prefix
+            isOptional: true
+            type: String
+            description: Filter indexes by name prefix.
     examples:
       - id: list-vector-indexes
         name: List vector indexes
@@ -5515,16 +5523,12 @@ functions:
           ```
 
   - id: vectorbucket-deleteindex
-    title: 'vectors.from_().deleteIndex()'
+    title: 'vectors.from().deleteIndex()'
     description: |
       Deletes a vector index.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
-        isOptional: false
-        type: String
-        description: The name of the vector bucket.
       - name: indexName
         isOptional: false
         type: String
@@ -5540,20 +5544,12 @@ functions:
           ```
 
   - id: vectorindex-putvectors
-    title: 'vectors.from_().index().putVectors()'
+    title: 'vectors.from().index().putVectors()'
     description: |
       Inserts or updates vectors in an index.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
-        isOptional: false
-        type: String
-        description: The name of the vector bucket.
-      - name: indexName
-        isOptional: false
-        type: String
-        description: The name of the index.
       - name: vectors
         isOptional: false
         type: List<VectorObject>
@@ -5572,32 +5568,29 @@ functions:
           ```
 
   - id: vectorindex-getvectors
-    title: 'vectors.from_().index().getVectors()'
+    title: 'vectors.from().index().getVectors()'
     description: |
       Retrieves vectors by their keys.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
+      - name: options
         isOptional: false
-        type: String
-        description: The name of the vector bucket.
-      - name: indexName
-        isOptional: false
-        type: String
-        description: The name of the index.
-      - name: keys
-        isOptional: false
-        type: List<String>
-        description: List of vector keys to retrieve.
-      - name: returnData
-        isOptional: true
-        type: Boolean
-        description: Whether to return vector data. Defaults to `true`.
-      - name: returnMetadata
-        isOptional: true
-        type: Boolean
-        description: Whether to return metadata. Defaults to `true`.
+        type: GetVectorOptions.() -> Unit
+        description: Configuration block for the operation.
+        subContent:
+          - name: keys
+            isOptional: false
+            type: List<String>
+            description: List of vector keys to retrieve.
+          - name: returnData
+            isOptional: true
+            type: Boolean
+            description: Whether to return vector data. Defaults to `true`.
+          - name: returnMetadata
+            isOptional: true
+            type: Boolean
+            description: Whether to return metadata. Defaults to `true`.
     examples:
       - id: get-vectors
         name: Get vectors
@@ -5612,44 +5605,41 @@ functions:
           ```
 
   - id: vectorindex-listvectors
-    title: 'vectors.from_().index().listVectors()'
+    title: 'vectors.from().index().listVectors()'
     description: |
       Lists vectors in an index with optional pagination.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
+      - name: options
         isOptional: false
-        type: String
-        description: The name of the vector bucket.
-      - name: indexName
-        isOptional: false
-        type: String
-        description: The name of the index.
-      - name: maxResults
-        isOptional: true
-        type: Int
-        description: Maximum number of vectors to return.
-      - name: nextToken
-        isOptional: true
-        type: String
-        description: Token for pagination.
-      - name: returnData
-        isOptional: true
-        type: Boolean
-        description: Whether to return vector data. Defaults to `true`.
-      - name: returnMetadata
-        isOptional: true
-        type: Boolean
-        description: Whether to return metadata. Defaults to `true`.
-      - name: segmentCount
-        isOptional: true
-        type: Int
-        description: Number of segments for distributed queries.
-      - name: segmentIndex
-        isOptional: true
-        type: Int
-        description: Segment index for distributed queries.
+        type: ListVectorsOptions.() -> Unit
+        description: Configuration block for the operation.
+        subContent:
+          - name: maxResults
+            isOptional: true
+            type: Int
+            description: Maximum number of vectors to return.
+          - name: nextToken
+            isOptional: true
+            type: String
+            description: Token for pagination.
+          - name: returnData
+            isOptional: true
+            type: Boolean
+            description: Whether to return vector data. Defaults to `true`.
+          - name: returnMetadata
+            isOptional: true
+            type: Boolean
+            description: Whether to return metadata. Defaults to `true`.
+          - name: segmentCount
+            isOptional: true
+            type: Int
+            description: Number of segments for distributed queries.
+          - name: segmentIndex
+            isOptional: true
+            type: Int
+            description: Segment index for distributed queries.
     examples:
       - id: list-vectors
         name: List vectors
@@ -5663,40 +5653,37 @@ functions:
           ```
 
   - id: vectorindex-queryvectors
-    title: 'vectors.from_().index().queryVectors()'
+    title: 'vectors.from().index().queryVectors()'
     description: |
       Queries vectors using a query vector to find similar vectors.
     notes: |
       - This is an alpha feature and may change in the future.
     params:
-      - name: bucketName
+      - name: options
         isOptional: false
-        type: String
-        description: The name of the vector bucket.
-      - name: indexName
-        isOptional: false
-        type: String
-        description: The name of the index.
-      - name: queryVector
-        isOptional: false
-        type: VectorData
-        description: The query vector to search with.
-      - name: topK
-        isOptional: true
-        type: Int
-        description: Number of results to return.
-      - name: filter
-        isOptional: true
-        type: VectorFilter
-        description: Optional filter to apply to the query.
-      - name: returnDistance
-        isOptional: true
-        type: Boolean
-        description: Whether to return distance scores. Defaults to `true`.
-      - name: returnMetadata
-        isOptional: true
-        type: Boolean
-        description: Whether to return metadata. Defaults to `true`.
+        type: QueryVectorsOptions.() -> Unit
+        description: Configuration block for the query.
+        subContent:
+          - name: queryVector
+            isOptional: false
+            type: VectorData
+            description: The query vector to search with.
+          - name: topK
+            isOptional: true
+            type: Int
+            description: Number of results to return.
+          - name: filter
+            isOptional: true
+            type: VectorFilter
+            description: Optional filter to apply to the query.
+          - name: returnDistance
+            isOptional: true
+            type: Boolean
+            description: Whether to return distance scores. Defaults to `true`.
+          - name: returnMetadata
+            isOptional: true
+            type: Boolean
+            description: Whether to return metadata. Defaults to `true`.
     examples:
       - id: query-vectors
         name: Query vectors
@@ -5713,7 +5700,7 @@ functions:
           ```
 
   - id: vectorindex-deletevectors
-    title: 'vectors.from_().index().deleteVectors()'
+    title: 'vectors.from().index().deleteVectors()'
     description: |
       Deletes vectors by their keys.
     notes: |
@@ -5744,6 +5731,7 @@ functions:
           ```
 
   - id: storagefile-exists
+    title: 'storage.from().exists()'
     description: |
       Checks the existence of a file.
     params:
@@ -5760,6 +5748,7 @@ functions:
           ```
 
   - id: storagefile-info
+    title: 'storage.from().info()'
     description: |
       Retrieves the details of an existing file.
       Returns detailed file metadata including size, content type, and timestamps.
