@@ -5231,11 +5231,11 @@ functions:
         description: Number of buckets to skip.
       - name: sortColumn
         isOptional: true
-        type: String
+        type: BucketSortColumn
         description: 'Column to sort by. Options: `BucketSortColumn.ID`, `BucketSortColumn.NAME`, `BucketSortColumn.CREATED_AT`, `BucketSortColumn.UPDATED_AT`.'
       - name: sortOrder
         isOptional: true
-        type: String
+        type: SortOrder
         description: 'Sort order. Options: `SortOrder.ASC`, `SortOrder.DESC`.'
       - name: search
         isOptional: true
