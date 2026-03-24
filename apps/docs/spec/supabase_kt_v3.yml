@@ -37,7 +37,7 @@ functions:
       The following will explain how each target handles OAuth and OTP link verification, if supported.
 
       **On Desktop platforms (JVM, MacOS\*, Linux, Windows)**, it uses a HTTP Callback Server to receive the session data from a successful OAuth login. The success page can be customized via `AuthConfig#httpCallbackConfig` \
-      \* If no deeplinks are being used. This work-as-is, by default.
+      \* If no deeplinks are being used. This works-as-is, by default.
 
       *Note: OTP link verification such as sign ups are not supported on JVM. You may have to send a verification token rather than a url in your email. To send the token, rather than a redirect url, change `{{ .ConfirmationURL }}` in your sign up email to `{{ .Token }}`*
 
@@ -3209,9 +3209,9 @@ functions:
       - This method is used for signing in using a third-party provider.
       - Supabase supports many different [third-party providers](https://supabase.com/docs/guides/auth#providers).
       - To learn how to handle OTP links & OAuth refer to [initializing](/docs/reference/kotlin/initializing)
-      - This method can be called anywhere, you can treat it like any other suspending function. 
-      However, this method will not wait for the OAuth response and will return after the corresponding platform implementation was called, which is by default opening the system browser.
-      - The callback will happen differently on the targets. On Mobile devices it will be handled via `handleDeeplinks()`, if setup. On Desktop and JS devices it will automatically handled.
+      - The `signInWith(Provider)` method can be called anywhere, you can treat it like any other suspending function. 
+      - This method will not wait for the OAuth response and will return after the corresponding platform implementation was called, which is by default opening the system browser.
+      - The callback will happen differently on the targets. On Mobile devices it will be handled via `handleDeeplinks()`, if set up. On Desktop and JS devices it will be automatically handled.
     params:
       - name: provider
         isOptional: false
@@ -5223,11 +5223,11 @@ functions:
     params:
       - name: limit
         isOptional: true
-        type: Integer
+        type: Int
         description: Maximum number of buckets to return.
       - name: offset
         isOptional: true
-        type: Integer
+        type: Int
         description: Number of buckets to skip.
       - name: sortColumn
         isOptional: true
@@ -5356,7 +5356,7 @@ functions:
         description: Filter buckets by name prefix.
       - name: maxResults
         isOptional: true
-        type: Integer
+        type: Int
         description: Maximum number of buckets to return.
       - name: nextToken
         isOptional: true
@@ -5422,7 +5422,7 @@ functions:
         description: The name of the index to create.
       - name: dimension
         isOptional: false
-        type: Integer
+        type: Int
         description: The dimension of the vectors in this index.
       - name: distanceMetric
         isOptional: false
@@ -5493,7 +5493,7 @@ functions:
         description: Token for pagination.
       - name: maxResults
         isOptional: true
-        type: Integer
+        type: Int
         description: Maximum number of indexes to return.
       - name: prefix
         isOptional: true
@@ -5628,7 +5628,7 @@ functions:
         description: The name of the index.
       - name: maxResults
         isOptional: true
-        type: Integer
+        type: Int
         description: Maximum number of vectors to return.
       - name: nextToken
         isOptional: true
@@ -5644,11 +5644,11 @@ functions:
         description: Whether to return metadata. Defaults to `true`.
       - name: segmentCount
         isOptional: true
-        type: Integer
+        type: Int
         description: Number of segments for distributed queries.
       - name: segmentIndex
         isOptional: true
-        type: Integer
+        type: Int
         description: Segment index for distributed queries.
     examples:
       - id: list-vectors
@@ -5683,7 +5683,7 @@ functions:
         description: The query vector to search with.
       - name: topK
         isOptional: true
-        type: Integer
+        type: Int
         description: Number of results to return.
       - name: filter
         isOptional: true
@@ -5747,7 +5747,7 @@ functions:
     description: |
       Checks the existence of a file.
     params:
-      - path: path
+      - name: path
         isOptional: false
         type: String
         description: The file path, including the file name. For example `folder/image.png`.

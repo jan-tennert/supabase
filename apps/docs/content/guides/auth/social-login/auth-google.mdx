@@ -736,7 +736,7 @@ val authState = supabaseClient.composeAuth.rememberSignInWithGoogle(
             is NativeSignInResult.Error -> TODO()
             is NativeSignInResult.NetworkError -> TODO()
             is NativeSignInResult.Success -> {
-                val credential = result.data.google.credential
+                val credential = it.data.google.credential
                 credential.displayName
                 credential.phoneNumber
                 // ...
