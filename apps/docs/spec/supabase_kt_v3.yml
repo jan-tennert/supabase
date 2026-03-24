@@ -5764,7 +5764,7 @@ functions:
       Retrieves the details of an existing file.
       Returns detailed file metadata including size, content type, and timestamps.
     params:
-      - path: path
+      - name: path
         isOptional: false
         type: String
         description: The file path, including the file name. For example `folder/image.png`.
