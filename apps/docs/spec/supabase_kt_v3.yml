@@ -37,7 +37,7 @@ functions:
       The following will explain how each target handles OAuth and OTP link verification, if supported.
 
       **On Desktop platforms (JVM, MacOS\*, Linux, Windows)**, it uses a HTTP Callback Server to receive the session data from a successful OAuth login. The success page can be customized via `AuthConfig#httpCallbackConfig` \
-      \* If no deeplinks are being used. This works-as-is, by default.
+      \* If no deeplinks are being used. This works as-is, by default.
 
       *Note: OTP link verification such as sign ups are not supported on JVM. You may have to send a verification token rather than a url in your email. To send the token, rather than a redirect url, change `{{ .ConfirmationURL }}` in your sign up email to `{{ .Token }}`*
 
