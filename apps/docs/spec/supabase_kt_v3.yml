@@ -29,9 +29,8 @@ functions:
       ### OAuth and OTP link verification
 
       [supabase-kt](https://github.com/supabase-community/supabase-kt) provides several platform implementations for OAuth and OTP link verification.
- 
+
       OAuth sign-ins can be triggered via `supabase.auth.signInWith(Provider)` and the callback has to be handled differently on each Kotlin target.
-    
       OTP link verification stands for opening your app, and directly signing-in via the clicked link. This is only supported on Mobile devices & Web targets.
 
       The following will explain how each target handles OAuth and OTP link verification, if supported.
@@ -5222,7 +5221,7 @@ functions:
       - This is an alpha feature and may change in the future.
     params:
       - name: filter
-        isOptional: false
+        isOptional: true
         type: StorageListFilter.Buckets.() -> Unit
         description: Filter block for the operation.
         subContent:
@@ -5356,9 +5355,9 @@ functions:
       - This is an alpha feature and may change in the future.
     params:
       - name: filter
-        isOptional: false
+        isOptional: true
         type: VectorBucketFilter.() -> Unit
-        description: Filter block for the operation.
+        description: Optional filter block for the operation.
         subContent:
           - name: prefix
             isOptional: true
@@ -5612,9 +5611,9 @@ functions:
       - This is an alpha feature and may change in the future.
     params:
       - name: options
-        isOptional: false
+        isOptional: true
         type: ListVectorsOptions.() -> Unit
-        description: Configuration block for the operation.
+        description: Optional configuration block for the operation. If omitted, default pagination and response settings are used.
         subContent:
           - name: maxResults
             isOptional: true
